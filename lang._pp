@@ -1,0 +1,48 @@
+let value = 1 + 5 + 4;
+let value2: [[int]] = [[0], [value]];
+
+let thing: [int] = [1, 2, 3, 4 + 5];
+
+let access = thing[3];
+
+let asdfasdf = 1 + 4;
+
+let thing2 = thing;
+
+let other = asdfasdf + 6;
+
+fn firstFunction(param: int) -> float {
+    return 1.0;
+}
+
+// let array: [u8] = [1, 2, 3, 4, 5];
+// 
+// let tuple: (u8, i32) = (1, 2);
+// 
+// let str: string = "adsfasdf";
+// 
+// let obj: { asdf: i32, asdfs: u32 } = {
+//     asdf = 0,
+//     asdfs = 0,
+// };
+// 
+// trait Asdf {
+//     urmom: u32,
+// }
+// 
+// trait OtherTrait {
+//     idk: u32,
+// }
+
+// fn doSomething (param: int, v1: int) -> float;
+// 
+// fn doSomething(param: int) where param == 1 {
+//     let x = 0;
+// }
+
+// // anon means that it determines the 
+// fn doSomething2(param: Asdf + OtherTrait) -> u16 {
+//     return 0;
+// }
+// 
+// let otherVal = doSomething(1);
