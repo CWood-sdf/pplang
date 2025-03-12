@@ -71,6 +71,11 @@ pub fn printAst(ref: Ast.AstRef, indent: u32) void {
             printAst(node.left, indent + 2);
             printAst(node.right, indent + 2);
         },
+        .Sub => |node| {
+            std.debug.print("Sub:\n", .{});
+            printAst(node.left, indent + 2);
+            printAst(node.right, indent + 2);
+        },
         .Equals => |node| {
             std.debug.print("Equals:\n", .{});
             printAst(node.left, indent + 2);
@@ -139,6 +144,25 @@ pub fn printAst(ref: Ast.AstRef, indent: u32) void {
             printAst(node.tp, indent + 2);
             if (node.next) |next|
                 printAst(next, indent);
+        },
+        .FunctionCall => |node| {
+            std.debug.print("FunctionCall: \n", .{});
+            printIndent(indent + 2);
+            std.debug.print("Name: ", .{});
+            switch (node.name.tok) {
+                .Ident => |str| std.debug.print("{s}\n", .{str}),
+                else => unreachable,
+            }
+            if (node.params) |params| {
+                printAst(params, indent + 2);
+            }
+        },
+        .FunctionCallParam => |p| {
+            std.debug.print("FunctionCall: \n", .{});
+            printAst(p.value, indent + 2);
+            if (p.next) |next| {
+                printAst(next, indent);
+            }
         },
         .Return => |node| {
             std.debug.print("Return:\n", .{});

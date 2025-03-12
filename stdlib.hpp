@@ -21,6 +21,13 @@ template <long left, long right> struct Add<Int<left>, Int<right>> {
 template <double left, double right> struct Add<Float<left>, Float<right>> {
   typedef Float<left + right> __ret;
 };
+template <typename Left, typename Right> struct Sub {};
+template <long left, long right> struct Sub<Int<left>, Int<right>> {
+  typedef Int<left - right> __ret;
+};
+template <double left, double right> struct Sub<Float<left>, Float<right>> {
+  typedef Float<left - right> __ret;
+};
 
 template <typename Arr, typename index> struct Index {};
 

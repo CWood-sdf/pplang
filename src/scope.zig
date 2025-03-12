@@ -3,17 +3,17 @@ const Lex = @import("lexer.zig");
 const Tp = @import("types.zig");
 const Ast = @import("ast.zig");
 const Err = @import("error.zig");
+pub const Var = struct {
+    tp: Tp.TypeRef,
+    decl: Ast.AstRef,
+};
+
+pub const Function = struct {
+    decl: Ast.AstRef,
+};
 pub const Scope = struct {
     vars: std.StringHashMap(Var),
     functions: std.StringHashMap(Function),
-    pub const Var = struct {
-        tp: Tp.TypeRef,
-        decl: Ast.AstRef,
-    };
-
-    pub const Function = struct {
-        decl: Ast.AstRef,
-    };
     pub fn init(alloc: std.mem.Allocator) Scope {
         return .{ .vars = std.StringHashMap(Var).init(alloc), .functions = std.StringHashMap(Function).init(alloc) };
     }
@@ -82,7 +82,8 @@ pub const Scopes = struct {
         self.scopes.append(Scope.init(self.alloc)) catch return Err.ParseError.OutOfMemory;
     }
     pub fn popScope(self: *Scopes) void {
-        self.scopes.pop().deinit();
+        self.scopes.items[self.scopes.items.len - 1].deinit();
+        _ = self.scopes.pop();
     }
     pub fn addVar(self: *Scopes, str: []const u8, tp: Tp.TypeRef, decl: Ast.AstRef) Err.ParseError!void {
         const last = &self.scopes.items[self.scopes.items.len - 1];
@@ -92,10 +93,13 @@ pub const Scopes = struct {
         var i: usize = self.scopes.items.len;
         while (i > 0) {
             i -= 1;
+            const ogSize = Ast.errorBus.items.len;
             if (self.scopes.items[i].getTypeFor(str)) |tp| {
                 return tp;
             }
-            _ = Ast.errorBus.pop();
+            if (Ast.errorBus.items.len > ogSize) {
+                _ = Ast.errorBus.pop();
+            }
         }
         return Err.errVarNotExist(node);
     }
@@ -108,13 +112,13 @@ pub const Scopes = struct {
         const last = &self.scopes.items[self.scopes.items.len - 1];
         try last.setFunctionNonDefault(str, decl);
     }
-    pub fn getFunction(self: *Scopes, str: []const u8, name: Lex.Token) Err.ParseError!*Scope.Function {
+    pub fn getFunction(self: *Scopes, str: []const u8, name: Lex.Token) Err.ParseError!*Function {
         var i: usize = self.scopes.items.len;
         while (i > 0) {
             i -= 1;
-            if (self.scopes.items[i].getFunctionDecl(str)) |tp| {
+            if (self.scopes.items[i].getFunctionDecl(str, name)) |tp| {
                 return tp;
-            }
+            } else |_| {}
             _ = Ast.errorBus.pop();
         }
         return Err.errVarNotExist(name);

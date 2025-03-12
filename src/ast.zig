@@ -35,6 +35,15 @@ pub const Ast = union(enum) {
         tp: AstRef,
         next: ?AstRef,
     },
+    FunctionCall: struct {
+        name: lex.Token,
+        params: ?AstRef,
+        closingParen: lex.Token,
+    },
+    FunctionCallParam: struct {
+        value: AstRef,
+        next: ?AstRef,
+    },
     // FunctionForwardDecl: struct {
     //     keyword: lex.Token,
     //     name: AstRef,
@@ -68,6 +77,7 @@ pub const Ast = union(enum) {
         value: AstRef,
     },
     Add: BinOp,
+    Sub: BinOp,
     Equals: BinOp,
     pub const BinOp = struct {
         left: AstRef,
@@ -101,9 +111,12 @@ pub const Ast = union(enum) {
             .TypeTupleOf => |v| v.token.startPos,
             .Statement => |v| v.ast.getNode().getLeftRange(),
             .Add => |v| v.left.getNode().getLeftRange(),
+            .Sub => |v| v.left.getNode().getLeftRange(),
             .Equals => |v| v.left.getNode().getLeftRange(),
             .FunctionParameterDecl => |v| v.name.startPos,
             .FunctionDecl => |v| v.keyword.startPos,
+            .FunctionCall => |v| v.name.startPos,
+            .FunctionCallParam => |v| v.value.getNode().getLeftRange(),
             .Return => |v| v.token.startPos,
         };
     }
@@ -139,9 +152,15 @@ pub const Ast = union(enum) {
             else
                 v.ast.getNode().getRightRange(),
             .Add => |v| v.right.getNode().getRightRange(),
+            .Sub => |v| v.right.getNode().getRightRange(),
             .Equals => |v| v.right.getNode().getRightRange(),
             .FunctionParameterDecl => |v| if (v.next) |next| next.getNode().getRightRange() else v.tp.getNode().getRightRange(),
             .FunctionDecl => |v| v.block.getNode().getRightRange(),
+            .FunctionCall => |v| v.closingParen.endPos,
+            .FunctionCallParam => |v| if (v.next) |next|
+                next.getNode().getRightRange()
+            else
+                v.value.getNode().getRightRange(),
             .Return => |v| v.value.getNode().getRightRange(),
         };
     }
@@ -281,14 +300,16 @@ pub fn parseFunction(lexer: *lex.Lexer) !AstRef {
     }
 }
 
-pub fn parseFunctionParams(lexer: *lex.Lexer) !AstRef {
+pub fn parseFunctionParams(lexer: *lex.Lexer) !?AstRef {
     const nameTok = try lexer.getNextToken();
     switch (nameTok.tok) {
         .Ident => {},
+        .RightParen => return null,
         else => return Err.errUnexpectedToken(
             nameTok,
             [_]lex.TokenType{
                 .{ .Ident = "a" },
+                .RightParen,
             },
         ),
     }
@@ -308,7 +329,7 @@ pub fn parseFunctionParams(lexer: *lex.Lexer) !AstRef {
         }),
     };
 
-    return Ast.addNode(.{
+    return try Ast.addNode(.{
         .FunctionParameterDecl = .{
             .name = nameTok,
             .tp = tp,
@@ -397,6 +418,26 @@ pub fn parseArray(lexer: *lex.Lexer) !AstRef {
     }
     return retNode.?;
 }
+
+pub fn parseFunctionCallParams(lexer: *lex.Lexer) Err.ParseError!?AstRef {
+    if (lexer.peekNextToken().tok == .RightParen) {
+        _ = try lexer.getNextToken();
+        return null;
+    }
+    const value = try parseValue(lexer);
+    const nextTok = try lexer.getNextToken();
+    const next = switch (nextTok.tok) {
+        .Comma => try parseFunctionCallParams(lexer),
+        .RightParen => null,
+        else => return Err.errUnexpectedToken(nextTok, [_]lex.TokenType{
+            .{ .IntLiteral = 0 },
+            .{ .FloatLiteral = 0 },
+            .LeftSqBracket,
+            .{ .Ident = "a" },
+        }),
+    };
+    return try Ast.addNode(.{ .FunctionCallParam = .{ .next = next, .value = value } });
+}
 pub fn parseValue(lexer: *lex.Lexer) Err.ParseError!AstRef {
     const token = try lexer.getNextToken();
     var ret =
@@ -406,9 +447,20 @@ pub fn parseValue(lexer: *lex.Lexer) Err.ParseError!AstRef {
         try Ast.addNode(.{ .Float = token })
     else if (token.tok == .LeftSqBracket)
         try parseArray(lexer)
-    else if (token.tok == .Ident)
-        try Ast.addNode(.{ .VariableAccess = token })
-    else {
+    else if (token.tok == .Ident) blk: {
+        if (lexer.peekNextToken().tok == .LeftParen) {
+            const name = lexer.currentTok.?;
+            _ = try lexer.getNextToken();
+            const params = try parseFunctionCallParams(lexer);
+            break :blk try Ast.addNode(.{ .FunctionCall = .{
+                .name = name,
+                .params = params,
+                .closingParen = lexer.currentTok.?,
+            } });
+        } else {
+            break :blk try Ast.addNode(.{ .VariableAccess = token });
+        }
+    } else {
         return Err.errUnexpectedToken(token, [_]lex.TokenType{
             .{ .IntLiteral = 0 },
             .{ .FloatLiteral = 0 },
@@ -422,6 +474,11 @@ pub fn parseValue(lexer: *lex.Lexer) Err.ParseError!AstRef {
             _ = try lexer.getNextToken();
             const right = try parseValue(lexer);
             ret = try Ast.addNode(.{ .Add = .{ .left = ret, .right = right } });
+        },
+        .OpMns => {
+            _ = try lexer.getNextToken();
+            const right = try parseValue(lexer);
+            ret = try Ast.addNode(.{ .Sub = .{ .left = ret, .right = right } });
         },
         .OpEqEq => {
             _ = try lexer.getNextToken();

@@ -2,14 +2,19 @@ const std = @import("std");
 const lex = @import("lexer.zig");
 const Tp = @import("types.zig");
 const Ast = @import("ast.zig");
-const ErrorTypes = enum { UnknownTypeToken, EmptyBlock, VariableDoesntExist, VariableRedeclaration, UnexpectedToken, OutOfMemory, TypeMismatch, UnexpectedType };
-pub const ErrorInfo = union(ErrorTypes) {
+pub const ErrorInfo = union(enum) {
     UnknownTypeToken: lex.Token,
     EmptyBlock: struct { leftBrace: lex.Token, rightBrace: lex.Token },
     VariableDoesntExist: lex.Token,
     VariableRedeclaration: struct {
         ogDecl: Ast.AstRef,
         redecl: Ast.AstRef,
+    },
+    ParamSizeMismatch: struct {
+        expectedSize: usize,
+        expectedFrom: Ast.AstRef,
+        actualSize: usize,
+        actualFrom: Ast.AstRef,
     },
     UnexpectedToken: struct {
         got: lex.Token,
@@ -49,7 +54,18 @@ pub const ErrorInfo = union(ErrorTypes) {
             },
             .VariableRedeclaration => |v| {
                 _ = try std.fmt.format(writer, "On line {}, variable redeclared\n", .{lexer.getLineFor(v.redecl.getNode().getLeftRange())});
-                _ = try std.fmt.format(writer, "Note: variable first declared on line {}\n", .{lexer.getLineFor(v.ogDecl.getNode().getLeftRange())});
+                _ = try std.fmt.format(writer, "  Note: variable first declared on line {}\n", .{lexer.getLineFor(v.ogDecl.getNode().getLeftRange())});
+            },
+            .ParamSizeMismatch => |v| {
+                _ = try std.fmt.format(writer, "On line {}, parameter size mismatch\n", .{
+                    lexer.getLineFor(v.actualFrom.getNode().getLeftRange()),
+                });
+                _ = try std.fmt.format(writer, "  Note: expected {} parameters, but got {}\n", .{ v.expectedSize, v.actualSize });
+                _ = try std.fmt.format(writer, "  Note: expected because of declaration on line {}: {s}\n", .{
+                    lexer.getLineFor(v.expectedFrom.getNode().getLeftRange()),
+                    v.expectedFrom.getNode().getString(lexer),
+                });
+                _ = try std.fmt.format(writer, "  Note: but got {s}\n", .{v.actualFrom.getNode().getString(lexer)});
             },
             .UnexpectedToken => |v| {
                 _ = try std.fmt.format(writer, "On line {}, unexpected token {}\n", .{ lexer.getLineFor(v.got.startPos), v.got.tok });
@@ -162,4 +178,19 @@ pub fn errUnexpectedType(
     return ParseError.UnexpectedType;
 }
 
-pub const ParseError = error{ UnknownTypeToken, EmptyBlock, VariableDoesntExist, VariableRedeclaration, UnexpectedToken, OutOfMemory, TypeMismatch, UnexpectedType } || lex.LexerError;
+pub fn errParamMismatch(
+    expectedSize: usize,
+    expectedFrom: Ast.AstRef,
+    actualSize: usize,
+    actualFrom: Ast.AstRef,
+) ParseError {
+    Ast.errorBus.append(ErrorInfo{ .ParamSizeMismatch = .{
+        .expectedSize = expectedSize,
+        .expectedFrom = expectedFrom,
+        .actualSize = actualSize,
+        .actualFrom = actualFrom,
+    } }) catch return ParseError.OutOfMemory;
+    return ParseError.ParamSizeMismatch;
+}
+
+pub const ParseError = error{ ParamSizeMismatch, UnknownTypeToken, EmptyBlock, VariableDoesntExist, VariableRedeclaration, UnexpectedToken, OutOfMemory, TypeMismatch, UnexpectedType } || lex.LexerError;

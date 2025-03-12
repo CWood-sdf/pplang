@@ -4,9 +4,67 @@ const lex = @import("lexer.zig");
 const Ast = @import("ast.zig");
 const Tp = @import("types.zig");
 
+pub fn convertParams(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
+    switch (ast.getNode().*) {
+        .FunctionParameterDecl => |v| {
+            _ = try writer.write("typename ");
+            const name = switch (v.name.tok) {
+                .Ident => |str| str,
+                else => unreachable,
+            };
+            _ = try std.fmt.format(writer, "{s}", .{name});
+            if (v.next) |next| {
+                _ = try writer.write(", ");
+                try convertParams(next, writer);
+            }
+        },
+        else => unreachable,
+    }
+}
+
 pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
     switch (ast.getNode().*) {
-        .FunctionDecl => {},
+        .FunctionCallParam => |v| {
+            try convertAst(v.value, writer);
+            if (v.next) |next| {
+                _ = try writer.write(", ");
+                try convertAst(next, writer);
+            }
+        },
+        .FunctionDecl => |v| {
+            if (v.ret) |_| {
+                if (v.params) |params| {
+                    _ = try writer.write("template<");
+                    try convertParams(params, writer);
+                    _ = try writer.write(">\n");
+                }
+                const fnName = switch (v.name.getNode().*) {
+                    .Ident => |n| switch (n.tok) {
+                        .Ident => |str| str,
+                        else => unreachable,
+                    },
+                    else => unreachable,
+                };
+                _ = try std.fmt.format(writer, "struct {s} {{\n", .{fnName});
+                try convertAst(v.block, writer);
+                _ = try writer.write("};\n");
+            } else {
+                unreachable;
+            }
+        },
+        .FunctionCall => |v| {
+            const name = switch (v.name.tok) {
+                .Ident => |str| str,
+                else => unreachable,
+            };
+            _ = try std.fmt.format(writer, "typename {s}", .{name});
+            if (v.params) |params| {
+                _ = try writer.write("<");
+                try convertAst(params, writer);
+                _ = try writer.write(">");
+            }
+            _ = try writer.write("::__ret ");
+        },
         .Statement => |v| {
             try convertAst(v.ast, writer);
             if (v.next) |next| {
@@ -35,8 +93,23 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 else => unreachable,
             }
         },
+        .Float => |v| {
+            switch (v.tok) {
+                .FloatLiteral => |val| {
+                    try std.fmt.format(writer, "Float<{}> ", .{val});
+                },
+                else => unreachable,
+            }
+        },
         .Add => |v| {
             _ = try writer.write("typename Add<");
+            try convertAst(v.left, writer);
+            _ = try writer.write(", ");
+            try convertAst(v.right, writer);
+            _ = try writer.write(">::__ret ");
+        },
+        .Sub => |v| {
+            _ = try writer.write("typename Sub<");
             try convertAst(v.left, writer);
             _ = try writer.write(", ");
             try convertAst(v.right, writer);
@@ -77,7 +150,15 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             try convertAst(v.right, writer);
             _ = try writer.write(">::__ret ");
         },
-        else => unreachable,
+        .Return => |v| {
+            _ = try writer.write("typedef ");
+            try convertAst(v.value, writer);
+            _ = try writer.write(" __ret;\n");
+        },
+        else => {
+            std.debug.print("YO: {}", .{ast.getNode().*});
+            unreachable;
+        },
     }
 }
 
@@ -105,13 +186,15 @@ pub fn main() !void {
     var reader = std.io.bufferedReader(file.reader());
     var inStream = reader.reader();
 
-    var buf: [1024]u8 = undefined;
-
     var backingArr = std.ArrayList(u8).init(alloc);
     defer backingArr.deinit();
-
-    while (try inStream.readUntilDelimiterOrEof(&buf, 0)) |line| {
-        try backingArr.appendSlice(line);
+    while (true) {
+        const size = 1024;
+        const bytes = try inStream.readBoundedBytes(size);
+        try backingArr.appendSlice(bytes.constSlice());
+        if (bytes.len < size) {
+            break;
+        }
     }
 
     // stdout is for the actual output of your application, for example if you
