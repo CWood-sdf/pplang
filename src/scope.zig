@@ -63,6 +63,12 @@ pub const Scope = struct {
         }
         return res.value_ptr;
     }
+    pub fn printVars(self: *const Scope) void {
+        var items = self.vars.keyIterator();
+        while (items.next()) |val| {
+            std.debug.print("  {s}\n", .{val.*});
+        }
+    }
 };
 
 pub const Scopes = struct {

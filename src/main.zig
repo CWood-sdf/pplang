@@ -286,23 +286,21 @@ pub fn main() !void {
     Ast.typeTree = @TypeOf(Ast.typeTree).init(alloc);
     defer Ast.typeTree.deinit();
 
-    const node = Ast.parseAst(&lexer) catch |e| {
-        std.debug.print("oops {}\n", .{e});
+    const node = Ast.parseAst(&lexer) catch {
         for (Ast.errorBus.items) |err| {
             try err.prettyPrint(stdout, &lexer);
         }
         return;
     };
 
-    Tp.validateTypes(node.?, alloc) catch |e| {
-        std.debug.print("oops {}\n", .{e});
+    Tp.validateTypes(node.?, alloc) catch {
         for (Ast.errorBus.items) |err| {
             try err.prettyPrint(stdout, &lexer);
         }
         return;
     };
+    // Pretty.printAst(node.?, 0);
     try writeAstToFile(node.?, "urmom.cpp");
-    Pretty.printAst(node.?, 0);
     // while (!lexer.isEOF()) {
     //     try stdout.print("{}\n", .{lexer.getNextToken() catch unreachable});
     // }

@@ -352,7 +352,7 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             if (v.next) |next| {
                 _ = try typesEqual(tp, try getType(next, scopes), v.value.?, next, ast);
             }
-            return getTypeRefFor(.{ .ArrayOf = tp });
+            return try getTypeRefFor(.{ .ArrayOf = tp });
         },
         .ArrayLiteralContinuation => |v| {
             const value = if (v.value) |val| try getType(val, scopes) else return try getTypeRefFor(Type.Never);
@@ -388,14 +388,14 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             return actualType;
         },
         .Statement => |v| {
+            const ret = try getType(v.ast, scopes);
             if (v.next) |next| {
-                return getType(next, scopes);
-            } else {
-                return getType(v.ast, scopes);
+                return try getType(next, scopes);
             }
+            return ret;
         },
         .Return => |v| {
-            return getType(v.value, scopes);
+            return try getType(v.value, scopes);
         },
         else => {
             std.debug.print("YO: {}\n", .{ast.getNode().*});
