@@ -43,6 +43,12 @@ pub fn printAst(ref: Ast.AstRef, indent: u32) void {
                 else => unreachable,
             }
         },
+        .True => {
+            std.debug.print("Bool: true\n", .{});
+        },
+        .False => {
+            std.debug.print("Bool: false\n", .{});
+        },
         .Ident => |node| {
             switch (node.tok) {
                 .Ident => |v| {
@@ -103,6 +109,14 @@ pub fn printAst(ref: Ast.AstRef, indent: u32) void {
             switch (node.tok) {
                 .Ident => |v| {
                     std.debug.print("VariableAccess: '{s}'\n", .{v});
+                },
+                else => unreachable,
+            }
+        },
+        .FunctionAccess => |node| {
+            switch (node.name.tok) {
+                .Ident => |v| {
+                    std.debug.print("FunctionAccess: '{s}'\n", .{v});
                 },
                 else => unreachable,
             }
@@ -168,7 +182,22 @@ pub fn printAst(ref: Ast.AstRef, indent: u32) void {
             std.debug.print("Return:\n", .{});
             printAst(node.value, indent + 2);
         },
-
-        else => unreachable,
+        .FunctionType => |node| {
+            std.debug.print("FunctionType:\n", .{});
+            if (node.params) |params| {
+                printAst(params, indent + 2);
+            }
+            printIndent(indent + 2);
+            std.debug.print("Returns:\n", .{});
+            printAst(node.ret, indent + 4);
+        },
+        .FunctionTypeParams => |node| {
+            std.debug.print("Param:\n", .{});
+            printAst(node.tp, indent + 2);
+            if (node.next) |next| {
+                printAst(next, indent);
+            }
+        },
+        .TypeTupleOf => unreachable,
     }
 }

@@ -35,6 +35,8 @@ pub const TokenType = union(enum) {
     Comment: []const u8,
 
     // Reserved Words
+    True,
+    False,
     Let,
     Fn,
     Trait,
@@ -172,6 +174,12 @@ pub const Lexer = struct {
         }
         if (std.mem.eql(u8, slice, "return")) {
             return self.makeToken(TokenType.Return);
+        }
+        if (std.mem.eql(u8, slice, "true")) {
+            return self.makeToken(TokenType.True);
+        }
+        if (std.mem.eql(u8, slice, "false")) {
+            return self.makeToken(TokenType.False);
         }
         return self.makeToken(.{ .Ident = slice });
     }

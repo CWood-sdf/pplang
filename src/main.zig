@@ -4,10 +4,10 @@ const lex = @import("lexer.zig");
 const Ast = @import("ast.zig");
 const Tp = @import("types.zig");
 
-pub fn convertParams(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
-    switch (ast.getNode().*) {
+pub fn writeParamNames(ast: ?Ast.AstRef, writer: std.fs.File.Writer) !void {
+    if (ast == null) return;
+    switch (ast.?.getNode().*) {
         .FunctionParameterDecl => |v| {
-            _ = try writer.write("typename ");
             const name = switch (v.name.tok) {
                 .Ident => |str| str,
                 else => unreachable,
@@ -15,7 +15,7 @@ pub fn convertParams(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             _ = try std.fmt.format(writer, "{s}", .{name});
             if (v.next) |next| {
                 _ = try writer.write(", ");
-                try convertParams(next, writer);
+                try writeParamNames(next, writer);
             }
         },
         else => unreachable,
@@ -31,11 +31,45 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 try convertAst(next, writer);
             }
         },
+        .FunctionType => |v| {
+            _ = try writer.write("template<");
+            if (v.params) |params| {
+                try convertAst(params, writer);
+            }
+            _ = try writer.write("> typename ");
+        },
+        .FunctionTypeParams => |v| {
+            try convertAst(v.tp, writer);
+            if (v.next) |next| {
+                _ = try writer.write(", ");
+                try convertAst(next, writer);
+            }
+        },
+        .TypeArrayOf => {
+            _ = try writer.write("typename ");
+        },
+        .TypeTupleOf => unreachable,
+        .String => unreachable,
+        .RawType => |_| {
+            _ = try writer.write("typename ");
+        },
+        .FunctionParameterDecl => |v| {
+            try convertAst(v.tp, writer);
+            const name = switch (v.name.tok) {
+                .Ident => |str| str,
+                else => unreachable,
+            };
+            _ = try std.fmt.format(writer, "{s}", .{name});
+            if (v.next) |next| {
+                _ = try writer.write(", ");
+                try convertAst(next, writer);
+            }
+        },
         .FunctionDecl => |v| {
             if (v.ret) |_| {
                 if (v.params) |params| {
                     _ = try writer.write("template<");
-                    try convertParams(params, writer);
+                    try convertAst(params, writer);
                     _ = try writer.write(">\n");
                 }
                 const fnName = switch (v.name.getNode().*) {
@@ -49,7 +83,29 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 try convertAst(v.block, writer);
                 _ = try writer.write("};\n");
             } else {
-                unreachable;
+                if (v.params) |params| {
+                    _ = try writer.write("template<");
+                    try convertAst(params, writer);
+                    _ = try writer.write(">\n");
+                }
+
+                if (v.where) |where| {
+                    _ = try writer.write("requires (GetValue<");
+                    try convertAst(where, writer);
+                    _ = try writer.write(">::val)\n");
+                } else unreachable;
+                const fnName = switch (v.name.getNode().*) {
+                    .Ident => |n| switch (n.tok) {
+                        .Ident => |str| str,
+                        else => unreachable,
+                    },
+                    else => unreachable,
+                };
+                _ = try std.fmt.format(writer, "struct {s}<", .{fnName});
+                try writeParamNames(v.params, writer);
+                _ = try writer.write(">{\n");
+                try convertAst(v.block, writer);
+                _ = try writer.write("};\n");
             }
         },
         .FunctionCall => |v| {
@@ -85,6 +141,12 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 else => unreachable,
             }
         },
+        .True => {
+            _ = try writer.write("Bool<true>");
+        },
+        .False => {
+            _ = try writer.write("Bool<false>");
+        },
         .Int => |v| {
             switch (v.tok) {
                 .IntLiteral => |val| {
@@ -103,6 +165,13 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         },
         .Add => |v| {
             _ = try writer.write("typename Add<");
+            try convertAst(v.left, writer);
+            _ = try writer.write(", ");
+            try convertAst(v.right, writer);
+            _ = try writer.write(">::__ret ");
+        },
+        .Equals => |v| {
+            _ = try writer.write("typename Equals<");
             try convertAst(v.left, writer);
             _ = try writer.write(", ");
             try convertAst(v.right, writer);
@@ -143,6 +212,14 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 else => unreachable,
             }
         },
+        .FunctionAccess => |v| {
+            switch (v.name.tok) {
+                .Ident => |str| {
+                    try std.fmt.format(writer, "{s} ", .{str});
+                },
+                else => unreachable,
+            }
+        },
         .ArrayAccess => |v| {
             _ = try writer.write("typename Index<");
             try convertAst(v.left, writer);
@@ -154,10 +231,6 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             _ = try writer.write("typedef ");
             try convertAst(v.value, writer);
             _ = try writer.write(" __ret;\n");
-        },
-        else => {
-            std.debug.print("YO: {}", .{ast.getNode().*});
-            unreachable;
         },
     }
 }

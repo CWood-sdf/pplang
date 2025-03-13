@@ -21,6 +21,8 @@ pub var typeTree: std.ArrayList(Tp.Type) = undefined;
 pub const Ast = union(enum) {
     Float: lex.Token,
     Int: lex.Token,
+    True: lex.Token,
+    False: lex.Token,
     String: lex.Token,
     Ident: lex.Token,
     RawType: lex.Token,
@@ -44,6 +46,15 @@ pub const Ast = union(enum) {
         value: AstRef,
         next: ?AstRef,
     },
+    FunctionType: struct {
+        fnToken: lex.Token,
+        ret: AstRef,
+        params: ?AstRef,
+    },
+    FunctionTypeParams: struct {
+        tp: AstRef,
+        next: ?AstRef,
+    },
     // FunctionForwardDecl: struct {
     //     keyword: lex.Token,
     //     name: AstRef,
@@ -59,6 +70,10 @@ pub const Ast = union(enum) {
         block: AstRef,
     },
     VariableAccess: lex.Token,
+    FunctionAccess: struct {
+        keyword: lex.Token,
+        name: lex.Token,
+    },
     TypeArrayOf: AstRef,
     ArrayLiteral: ArrayLiteralTp,
     ArrayLiteralContinuation: ArrayLiteralTp,
@@ -100,6 +115,8 @@ pub const Ast = union(enum) {
             .VariableAccess => |v| v.startPos,
             .Float => |v| v.startPos,
             .Int => |v| v.startPos,
+            .True => |v| v.startPos,
+            .False => |v| v.startPos,
             .Declaration => |v| v.keyword.startPos,
             .TypeArrayOf => |v| v.getNode().getLeftRange(),
             .ArrayLiteral => |v| v.token.startPos,
@@ -117,6 +134,9 @@ pub const Ast = union(enum) {
             .FunctionDecl => |v| v.keyword.startPos,
             .FunctionCall => |v| v.name.startPos,
             .FunctionCallParam => |v| v.value.getNode().getLeftRange(),
+            .FunctionType => |v| v.fnToken.startPos,
+            .FunctionTypeParams => |v| v.tp.getNode().getLeftRange(),
+            .FunctionAccess => |v| v.keyword.startPos,
             .Return => |v| v.token.startPos,
         };
     }
@@ -128,6 +148,8 @@ pub const Ast = union(enum) {
             .VariableAccess => |v| v.endPos,
             .Float => |v| v.endPos,
             .Int => |v| v.endPos,
+            .True => |v| v.endPos,
+            .False => |v| v.endPos,
             .Declaration => |v| v.value.getNode().getRightRange(),
             .TypeArrayOf => |v| v.getNode().getRightRange(),
             .ArrayLiteral => |v| if (v.next) |next|
@@ -154,13 +176,22 @@ pub const Ast = union(enum) {
             .Add => |v| v.right.getNode().getRightRange(),
             .Sub => |v| v.right.getNode().getRightRange(),
             .Equals => |v| v.right.getNode().getRightRange(),
-            .FunctionParameterDecl => |v| if (v.next) |next| next.getNode().getRightRange() else v.tp.getNode().getRightRange(),
+            .FunctionParameterDecl => |v| if (v.next) |next|
+                next.getNode().getRightRange()
+            else
+                v.tp.getNode().getRightRange(),
             .FunctionDecl => |v| v.block.getNode().getRightRange(),
             .FunctionCall => |v| v.closingParen.endPos,
             .FunctionCallParam => |v| if (v.next) |next|
                 next.getNode().getRightRange()
             else
                 v.value.getNode().getRightRange(),
+            .FunctionType => |v| v.ret.getNode().getRightRange(),
+            .FunctionTypeParams => |v| if (v.next) |next|
+                next.getNode().getRightRange()
+            else
+                v.tp.getNode().getRightRange(),
+            .FunctionAccess => |v| v.name.endPos,
             .Return => |v| v.value.getNode().getRightRange(),
         };
     }
@@ -337,9 +368,38 @@ pub fn parseFunctionParams(lexer: *lex.Lexer) !?AstRef {
         },
     });
 }
+
+pub fn parseFunctionTypeParams(lexer: *lex.Lexer) Err.ParseError!?AstRef {
+    const rparen = lexer.peekNextToken();
+    if (rparen.tok == .RightParen) {
+        _ = try lexer.getNextToken();
+        return null;
+    } else if (rparen.tok == .Comma) {
+        _ = try lexer.getNextToken();
+    }
+    const tp = try parseType(lexer);
+    const next = try parseFunctionTypeParams(lexer);
+    return try Ast.addNode(.{ .FunctionTypeParams = .{ .tp = tp, .next = next } });
+}
 pub fn parseType(lexer: *lex.Lexer) !AstRef {
     const token = try lexer.getNextToken();
     switch (token.tok) {
+        .Fn => {
+            const lparen = try lexer.getNextToken();
+            if (lparen.tok != .LeftParen) {
+                return Err.errUnexpectedToken(
+                    lparen,
+                    [_]lex.TokenType{.LeftParen},
+                );
+            }
+            const params = try parseFunctionTypeParams(lexer);
+            const arrow = try lexer.getNextToken();
+            if (arrow.tok != .Arrow) {
+                return Err.errUnexpectedToken(arrow, [_]lex.TokenType{.Arrow});
+            }
+            const retType = try parseType(lexer);
+            return try Ast.addNode(.{ .FunctionType = .{ .fnToken = token, .params = params, .ret = retType } });
+        },
         .Ident => {
             return try Ast.addNode(.{ .RawType = token });
         },
@@ -460,15 +520,31 @@ pub fn parseValue(lexer: *lex.Lexer) Err.ParseError!AstRef {
         } else {
             break :blk try Ast.addNode(.{ .VariableAccess = token });
         }
+    } else if (token.tok == .Fn) blk: {
+        const name = try lexer.getNextToken();
+        switch (name.tok) {
+            .Ident => {},
+            else => {
+                return Err.errUnexpectedToken(token, [_]lex.TokenType{
+                    .{ .Ident = "a" },
+                });
+            },
+        }
+        break :blk try Ast.addNode(.{ .FunctionAccess = .{
+            .name = name,
+            .keyword = token,
+        } });
     } else {
         return Err.errUnexpectedToken(token, [_]lex.TokenType{
             .{ .IntLiteral = 0 },
             .{ .FloatLiteral = 0 },
             .LeftSqBracket,
             .{ .Ident = "a" },
+            .Fn,
         });
     };
 
+    // TODO: Operator precedencing
     switch (lexer.peekNextToken().tok) {
         .OpPls => {
             _ = try lexer.getNextToken();

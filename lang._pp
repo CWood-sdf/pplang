@@ -1,9 +1,9 @@
 let value = 1 + 5 + 4;
 let value2: [[int]] = [[0], [value]];
 
-let thing: [int] = [1, 2, 3, 4 + 5];
+let thing: [int] = [1, 2, 3, 4 + 5, 5, 6, 7];
 
-let access = thing[3];
+let access = thing[4 + 1];
 
 let asdfasdf = 1 + 4;
 let asdfasdf2 = 1 - 4;
@@ -15,6 +15,37 @@ let other = asdfasdf + 6;
 fn otherFn() -> float {
     return 4.0;
 }
+
+fn addOne(param: int) -> int {
+    return param + 1;
+}
+
+fn subOne(param: int) -> int {
+    return param - 1;
+}
+
+fn twoParams(p1: int, p2: int) -> int {
+    return p1 + p2;
+}
+
+fn equalsOne(param: int) -> bool {
+    return param == 1;
+}
+
+fn yeetWith(param: fn(int) -> int, value: int) -> int{
+    return param(value);
+}
+
+fn yeetWith(param: fn(int) -> int, value: int) where equalsOne(value) {
+    return value + 10;
+}
+
+fn yofn(asdf: fn(int) -> int, otherFn: fn(fn(int) -> int, int) -> int, v: int) -> int {
+    return otherFn(fn asdf, v);
+}
+
+let idrkanymore = yofn(fn addOne, fn yeetWith, 1);
+let idrkanymore2 = yofn(fn subOne, fn yeetWith, 2);
 
 fn firstFunction(param: float) -> float {
     return param - 3.0 + 1.0 + otherFn() - 2.0;

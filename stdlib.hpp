@@ -2,9 +2,16 @@ template <typename V, V value> struct Value {
   static constexpr V val = value;
 };
 
+template <class V> struct GetValue {};
+
+template <typename V, V value> struct GetValue<Value<V, value>> {
+  static constexpr V val = value;
+};
+
 template <double value> using Float = Value<double, value>;
 template <long value> using Int = Value<long, value>;
 template <char value> using Char = Value<char, value>;
+template <bool value> using Bool = Value<bool, value>;
 
 template <typename... Val> struct Array {};
 
@@ -27,6 +34,17 @@ template <long left, long right> struct Sub<Int<left>, Int<right>> {
 };
 template <double left, double right> struct Sub<Float<left>, Float<right>> {
   typedef Float<left - right> __ret;
+};
+
+template <typename Left, typename Right> struct Equals {};
+template <long left, long right> struct Equals<Int<left>, Int<right>> {
+  typedef Bool<left == right> __ret;
+};
+template <double left, double right> struct Equals<Float<left>, Float<right>> {
+  typedef Bool<left == right> __ret;
+};
+template <bool left, bool right> struct Equals<Bool<left>, Bool<right>> {
+  typedef Bool<left == right> __ret;
 };
 
 template <typename Arr, typename index> struct Index {};

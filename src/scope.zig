@@ -9,6 +9,7 @@ pub const Var = struct {
 };
 
 pub const Function = struct {
+    tp: Tp.TypeRef,
     decl: Ast.AstRef,
 };
 pub const Scope = struct {
@@ -39,13 +40,14 @@ pub const Scope = struct {
             .decl = decl,
         };
     }
-    pub fn setFunction(self: *Scope, str: []const u8, decl: Ast.AstRef) Err.ParseError!void {
+    pub fn setFunction(self: *Scope, str: []const u8, decl: Ast.AstRef, tp: Tp.TypeRef) Err.ParseError!void {
         const res = self.functions.getOrPut(str) catch return Err.ParseError.OutOfMemory;
         if (res.found_existing) {
             return Err.errVariableRedecl(res.value_ptr.decl, decl);
         }
         res.value_ptr.* = .{
             .decl = decl,
+            .tp = tp,
         };
     }
     pub fn setFunctionNonDefault(self: *Scope, str: []const u8, name: Lex.Token) Err.ParseError!void {
@@ -104,9 +106,9 @@ pub const Scopes = struct {
         return Err.errVarNotExist(node);
     }
 
-    pub fn addDefaultFunction(self: *Scopes, str: []const u8, decl: Ast.AstRef) Err.ParseError!void {
+    pub fn addDefaultFunction(self: *Scopes, str: []const u8, decl: Ast.AstRef, tp: Tp.TypeRef) Err.ParseError!void {
         const last = &self.scopes.items[self.scopes.items.len - 1];
-        try last.setFunction(str, decl);
+        try last.setFunction(str, decl, tp);
     }
     pub fn addFunction(self: *Scopes, str: []const u8, decl: Lex.Token) Err.ParseError!void {
         const last = &self.scopes.items[self.scopes.items.len - 1];
