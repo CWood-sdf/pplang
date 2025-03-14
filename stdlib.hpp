@@ -59,3 +59,21 @@ template <typename V, typename... Other, long index>
 struct Index<Array<V, Other...>, Int<index>> {
   typedef typename Index<Array<Other...>, Int<index - 1>>::__ret __ret;
 };
+
+template <typename Arr> struct Sizeof {};
+
+template <typename... Args> struct Sizeof<Array<Args...>> {
+  typedef Int<sizeof...(Args)> __ret;
+};
+
+template <typename Left, typename Right> struct Merge {};
+
+template <typename... Left, typename... Right>
+struct Merge<Array<Left...>, Array<Right...>> {
+  typedef Array<Left..., Right...> __ret;
+};
+
+using arr1 = Array<Int<1>, Int<2>>;
+using arr2 = Array<Int<3>, Int<4>>;
+
+using arr3 = Sizeof<arr1>::__ret;

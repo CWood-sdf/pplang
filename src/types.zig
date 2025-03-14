@@ -18,6 +18,7 @@ pub const Type = union(enum) {
     Int,
     Float,
     Bool,
+    Generic: struct { name: []const u8, currentTp: TypeRef },
     ArrayOf: TypeRef,
     Function: struct {
         ret: TypeRef,
@@ -51,6 +52,7 @@ pub const Type = union(enum) {
     }
     pub fn prettyPrint(self: *Type, writer: std.io.AnyWriter) !void {
         switch (self.*) {
+            .Generic => |v| _ = try writer.write(v.name),
             .Bool => _ = try writer.write("bool"),
             .Int => _ = try writer.write("int"),
             .Float => _ = try writer.write("float"),
@@ -91,7 +93,13 @@ pub fn getTypeRefFor(inTp: Type) Err.ParseError!TypeRef {
     return TypeRef.init(Ast.typeTree.items.len - 1);
 }
 
-pub fn typesEqual(left: TypeRef, right: TypeRef, leftAst: Ast.AstRef, rightAst: Ast.AstRef, astFrom: Ast.AstRef) Err.ParseError!TypeRef {
+pub fn typesEqual(
+    left: TypeRef,
+    right: TypeRef,
+    leftAst: Ast.AstRef,
+    rightAst: Ast.AstRef,
+    astFrom: Ast.AstRef,
+) Err.ParseError!TypeRef {
     if (left.eq(right)) {
         return left;
     }
@@ -103,7 +111,12 @@ pub fn typesEqual(left: TypeRef, right: TypeRef, leftAst: Ast.AstRef, rightAst: 
     }
     return Err.errTypeMismatch(leftAst, rightAst, left, right, astFrom);
 }
-pub fn typesEqualNoRight(left: TypeRef, right: TypeRef, leftAst: Ast.AstRef, astFrom: Ast.AstRef) Err.ParseError!TypeRef {
+pub fn typesEqualNoRight(
+    left: TypeRef,
+    right: TypeRef,
+    leftAst: Ast.AstRef,
+    astFrom: Ast.AstRef,
+) Err.ParseError!TypeRef {
     if (left.eq(right)) {
         return left;
     }
@@ -137,12 +150,27 @@ pub fn getParamCount(ast: ?Ast.AstRef) usize {
     return 0;
 }
 
-pub fn assertParamSizeMatch(leftAst: ?Ast.AstRef, rightAst: ?Ast.AstRef, redeclAst: Ast.AstRef, declAst: Ast.AstRef) Err.ParseError!void {
+pub fn assertParamSizeMatch(
+    leftAst: ?Ast.AstRef,
+    rightAst: ?Ast.AstRef,
+    redeclAst: Ast.AstRef,
+    declAst: Ast.AstRef,
+) Err.ParseError!void {
     if (getParamCount(leftAst) != getParamCount(rightAst)) {
-        return Err.errParamMismatch(getParamCount(leftAst), redeclAst, getParamCount(rightAst), declAst);
+        return Err.errParamMismatch(
+            getParamCount(leftAst),
+            redeclAst,
+            getParamCount(rightAst),
+            declAst,
+        );
     }
 }
-pub fn assertCallParamsMatch(newAst: ?Ast.AstRef, declAst: ?Ast.AstRef, ogDeclAst: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!void {
+pub fn assertCallParamsMatch(
+    newAst: ?Ast.AstRef,
+    declAst: ?Ast.AstRef,
+    ogDeclAst: Ast.AstRef,
+    scopes: *scope.Scopes,
+) Err.ParseError!void {
     // NOTE: this assumes assertParamSizeMatch called first
     if (newAst == null or declAst == null) {
         return;
@@ -152,11 +180,23 @@ pub fn assertCallParamsMatch(newAst: ?Ast.AstRef, declAst: ?Ast.AstRef, ogDeclAs
         .FunctionCallParam => |v1| {
             switch (declAst.?.getNode().*) {
                 .FunctionParameterDecl => |v2| {
-                    _ = try typesEqual(try getType(v1.value, scopes), try parseTypeExpression(v2.tp), v1.value, v2.tp, ogDeclAst);
+                    _ = try typesEqual(
+                        try getType(v1.value, scopes),
+                        try parseTypeExpression(v2.tp),
+                        v1.value,
+                        v2.tp,
+                        ogDeclAst,
+                    );
                     try assertCallParamsMatch(v1.next, v2.next, ogDeclAst, scopes);
                 },
                 .FunctionTypeParams => |v2| {
-                    _ = try typesEqual(try getType(v1.value, scopes), try parseTypeExpression(v2.tp), v1.value, v2.tp, ogDeclAst);
+                    _ = try typesEqual(
+                        try getType(v1.value, scopes),
+                        try parseTypeExpression(v2.tp),
+                        v1.value,
+                        v2.tp,
+                        ogDeclAst,
+                    );
                     try assertCallParamsMatch(v1.next, v2.next, ogDeclAst, scopes);
                 },
                 else => unreachable,
@@ -166,7 +206,11 @@ pub fn assertCallParamsMatch(newAst: ?Ast.AstRef, declAst: ?Ast.AstRef, ogDeclAs
     }
 }
 
-pub fn assertParamsMatch(newAst: ?Ast.AstRef, declAst: ?Ast.AstRef, ogDeclAst: Ast.AstRef) Err.ParseError!void {
+pub fn assertParamsMatch(
+    newAst: ?Ast.AstRef,
+    declAst: ?Ast.AstRef,
+    ogDeclAst: Ast.AstRef,
+) Err.ParseError!void {
     // NOTE: this assumes assertParamSizeMatch called first
     if (newAst == null or declAst == null) {
         return;
@@ -176,7 +220,13 @@ pub fn assertParamsMatch(newAst: ?Ast.AstRef, declAst: ?Ast.AstRef, ogDeclAst: A
         .FunctionParameterDecl => |v1| {
             switch (declAst.?.getNode().*) {
                 .FunctionParameterDecl => |v2| {
-                    _ = try typesEqual(try parseTypeExpression(v1.tp), try parseTypeExpression(v2.tp), v1.tp, v2.tp, ogDeclAst);
+                    _ = try typesEqual(
+                        try parseTypeExpression(v1.tp),
+                        try parseTypeExpression(v2.tp),
+                        v1.tp,
+                        v2.tp,
+                        ogDeclAst,
+                    );
                     try assertParamsMatch(v1.next, v2.next, ogDeclAst);
                 },
                 else => unreachable,
@@ -230,9 +280,8 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
         .False => return getTypeRefFor(Type.Bool),
         .Int => return getTypeRefFor(Type.Int),
         .Float => return getTypeRefFor(Type.Float),
-        // .FunctionForwardDecl => |_| {
-        //     return getTypeRefFor(Type.Void);
-        // },
+
+        // TODO: Make this use from getType(v.fnAst)
         .FunctionCall => |v| {
             const name = switch (v.name.tok) {
                 .Ident => |str| str,
@@ -305,7 +354,12 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             defer scopes.popScope();
             try addParams(v.params, scopes);
             if (v.where) |where| {
-                _ = try typesEqualNoRight(try getType(where, scopes), try getTypeRefFor(Type.Bool), where, ast);
+                _ = try typesEqualNoRight(
+                    try getType(where, scopes),
+                    try getTypeRefFor(Type.Bool),
+                    where,
+                    ast,
+                );
             }
             const blockType = try getType(v.block, scopes);
             _ = try typesEqual(expectedRet, blockType, retNode, v.block, ast);
@@ -348,16 +402,27 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             return getTypeRefFor(Type.Void);
         },
         .ArrayLiteral => |v| {
-            const tp = if (v.value) |val| try getType(val, scopes) else return getTypeRefFor(.{ .ArrayOf = try getTypeRefFor(Type.Never) });
+            const tp = if (v.value) |val|
+                try getType(val, scopes)
+            else
+                return getTypeRefFor(.{
+                    .ArrayOf = try getTypeRefFor(Type.Never),
+                });
             if (v.next) |next| {
                 _ = try typesEqual(tp, try getType(next, scopes), v.value.?, next, ast);
             }
             return try getTypeRefFor(.{ .ArrayOf = tp });
         },
         .ArrayLiteralContinuation => |v| {
-            const value = if (v.value) |val| try getType(val, scopes) else return try getTypeRefFor(Type.Never);
+            const value = if (v.value) |val|
+                try getType(val, scopes)
+            else
+                return try getTypeRefFor(Type.Never);
             if (v.next) |next| {
-                _ = try typesEqual(value, try getType(next, scopes), v.value.?, next, ast);
+                _ = try typesEqual(value, try getType(
+                    next,
+                    scopes,
+                ), v.value.?, next, ast);
             }
             return value;
         },
@@ -368,6 +433,7 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             };
             return (try scopes.getFunction(name, v.name)).tp;
         },
+        // TODO: Make this support getting functions and variables
         .VariableAccess => |v| {
             const name = switch (v.tok) {
                 .Ident => |str| str,
@@ -382,7 +448,9 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             const actualType = switch (left.getNode().*) {
                 .ArrayOf => |tp| tp,
                 else => {
-                    return Err.errUnexpectedType(v.left, left, try getTypeRefFor(.{ .ArrayOf = try getTypeRefFor(Type.Any) }), null);
+                    return Err.errUnexpectedType(v.left, left, try getTypeRefFor(.{
+                        .ArrayOf = try getTypeRefFor(Type.Any),
+                    }), null);
                 },
             };
             return actualType;
@@ -449,7 +517,12 @@ pub fn parseTypeExpression(ast: Ast.AstRef) Err.ParseError!TypeRef {
 pub fn validateStatement(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!void {
     switch (ast.getNode().*) {
         .Statement => |v| {
-            _ = try typesEqualNoRight(try getType(v.ast, scopes), try getTypeRefFor(Type.Void), v.ast, ast);
+            _ = try typesEqualNoRight(
+                try getType(v.ast, scopes),
+                try getTypeRefFor(Type.Void),
+                v.ast,
+                ast,
+            );
             if (v.next) |next| {
                 try validateStatement(next, scopes);
             }

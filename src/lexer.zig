@@ -23,6 +23,7 @@ pub const TokenType = union(enum) {
     OpPls,
     OpMns,
     OpDiv,
+    OpHash,
     Arrow,
     Semicolon,
 
@@ -42,6 +43,29 @@ pub const TokenType = union(enum) {
     Trait,
     Where,
     Return,
+
+    pub fn prec(self: *TokenType) u8 {
+        return switch (self.*) {
+            .OpPls, .OpMns => 6,
+            .OpDiv => 5,
+            .Colon => 6,
+            .OpEqEq => 10,
+            .OpHash => 3,
+            else => unreachable,
+        };
+    }
+    pub fn isOp(self: *TokenType) bool {
+        return switch (self.*) {
+            .OpPls,
+            .OpMns,
+            .OpDiv,
+            .Colon,
+            .OpEqEq,
+            .OpHash,
+            => true,
+            else => false,
+        };
+    }
 };
 
 pub const Token = struct {
@@ -53,6 +77,12 @@ pub const Token = struct {
 
     pub fn init(lex: *Lexer, tok: TokenType) Token {
         return .{ .endPos = lex.pos, .startPos = lex.startPos, .tok = tok };
+    }
+    pub fn prec(self: *Token) u8 {
+        return self.tok.prec();
+    }
+    pub fn isOp(self: *Token) bool {
+        return self.tok.isOp();
     }
 };
 
@@ -66,7 +96,15 @@ pub const Lexer = struct {
     currentTok: ?Token,
 
     pub fn init(str: []u8) Lexer {
-        return .{ .str = str, .pos = 0, .startPos = 0, .row = 0, .startCol = 0, .col = 0, .currentTok = null };
+        return .{
+            .str = str,
+            .pos = 0,
+            .startPos = 0,
+            .row = 0,
+            .startCol = 0,
+            .col = 0,
+            .currentTok = null,
+        };
     }
 
     pub fn getLineFor(self: *const Lexer, pos: usize) usize {
@@ -299,7 +337,9 @@ pub const Lexer = struct {
             _ = self.eatChar();
         }
         if (isFloat) {
-            return self.makeToken(.{ .FloatLiteral = @as(f64, @floatFromInt(integer)) + decimal });
+            return self.makeToken(.{
+                .FloatLiteral = @as(f64, @floatFromInt(integer)) + decimal,
+            });
         }
         return self.makeToken(.{ .IntLiteral = integer });
     }
@@ -329,6 +369,7 @@ pub const Lexer = struct {
         self.currentTok = switch (self.char()) {
             'a'...'z', 'A'...'Z', '_' => self.readIdent(),
             ':' => self.makeTokenEatChar(TokenType.Colon),
+            '#' => self.makeTokenEatChar(TokenType.OpHash),
             '[' => self.makeTokenEatChar(TokenType.LeftSqBracket),
             ']' => self.makeTokenEatChar(TokenType.RightSqBracket),
             '(' => self.makeTokenEatChar(TokenType.LeftParen),

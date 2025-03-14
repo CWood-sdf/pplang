@@ -40,72 +40,156 @@ pub const ErrorInfo = union(enum) {
         from: ?Ast.AstRef,
     },
 
-    pub fn prettyPrint(self: *const ErrorInfo, writer: std.io.AnyWriter, lexer: *lex.Lexer) !void {
+    pub fn prettyPrint(
+        self: *const ErrorInfo,
+        writer: std.io.AnyWriter,
+        lexer: *lex.Lexer,
+    ) !void {
         switch (self.*) {
             .EmptyBlock => |v| {
-                _ = try std.fmt.format(writer, "Unexpected empty block on line {}\n", .{lexer.getLineFor(v.leftBrace.startPos)});
+                _ = try std.fmt.format(
+                    writer,
+                    "Unexpected empty block on line {}\n",
+                    .{lexer.getLineFor(v.leftBrace.startPos)},
+                );
             },
             .VariableDoesntExist => |v| {
                 const str = switch (v.tok) {
                     .Ident => |str| str,
                     else => unreachable,
                 };
-                _ = try std.fmt.format(writer, "Variable {s} not found on line {}\n", .{ str, lexer.getLineFor(v.startPos) });
+                _ = try std.fmt.format(
+                    writer,
+                    "Variable {s} not found on line {}\n",
+                    .{ str, lexer.getLineFor(v.startPos) },
+                );
             },
             .VariableRedeclaration => |v| {
-                _ = try std.fmt.format(writer, "On line {}, variable redeclared\n", .{lexer.getLineFor(v.redecl.getNode().getLeftRange())});
-                _ = try std.fmt.format(writer, "  Note: variable first declared on line {}\n", .{lexer.getLineFor(v.ogDecl.getNode().getLeftRange())});
+                _ = try std.fmt.format(
+                    writer,
+                    "On line {}, variable redeclared\n",
+                    .{lexer.getLineFor(v.redecl.getNode().getLeftRange())},
+                );
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: variable first declared on line {}\n",
+                    .{lexer.getLineFor(v.ogDecl.getNode().getLeftRange())},
+                );
             },
             .ParamSizeMismatch => |v| {
-                _ = try std.fmt.format(writer, "On line {}, parameter size mismatch\n", .{
-                    lexer.getLineFor(v.actualFrom.getNode().getLeftRange()),
-                });
-                _ = try std.fmt.format(writer, "  Note: expected {} parameters, but got {}\n", .{ v.expectedSize, v.actualSize });
-                _ = try std.fmt.format(writer, "  Note: expected because of declaration on line {}: {s}\n", .{
-                    lexer.getLineFor(v.expectedFrom.getNode().getLeftRange()),
-                    v.expectedFrom.getNode().getString(lexer),
-                });
-                _ = try std.fmt.format(writer, "  Note: but got {s}\n", .{v.actualFrom.getNode().getString(lexer)});
+                _ = try std.fmt.format(
+                    writer,
+                    "On line {}, parameter size mismatch\n",
+                    .{
+                        lexer.getLineFor(v.actualFrom.getNode().getLeftRange()),
+                    },
+                );
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: expected {} parameters, but got {}\n",
+                    .{ v.expectedSize, v.actualSize },
+                );
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: expected because of declaration on line {}: {s}\n",
+                    .{
+                        lexer.getLineFor(v.expectedFrom.getNode().getLeftRange()),
+                        v.expectedFrom.getNode().getString(lexer),
+                    },
+                );
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: but got {s}\n",
+                    .{v.actualFrom.getNode().getString(lexer)},
+                );
             },
             .UnexpectedToken => |v| {
-                _ = try std.fmt.format(writer, "On line {}, unexpected token {}\n", .{ lexer.getLineFor(v.got.startPos), v.got.tok });
+                _ = try std.fmt.format(
+                    writer,
+                    "On line {}, unexpected token {}\n",
+                    .{ lexer.getLineFor(v.got.startPos), v.got.tok },
+                );
                 _ = try writer.write("  Note: expected one of: \n");
                 _ = try std.fmt.format(writer, "    {}\n", .{v.expected});
-                if (v.expected2) |exp| _ = try std.fmt.format(writer, "    {}\n", .{exp});
-                if (v.expected3) |exp| _ = try std.fmt.format(writer, "    {}\n", .{exp});
-                if (v.expected4) |exp| _ = try std.fmt.format(writer, "    {}\n", .{exp});
-                if (v.expected5) |exp| _ = try std.fmt.format(writer, "    {}\n", .{exp});
-                if (v.expected6) |exp| _ = try std.fmt.format(writer, "    {}\n", .{exp});
+                if (v.expected2) |exp| _ = try std.fmt.format(
+                    writer,
+                    "    {}\n",
+                    .{exp},
+                );
+                if (v.expected3) |exp| _ = try std.fmt.format(
+                    writer,
+                    "    {}\n",
+                    .{exp},
+                );
+                if (v.expected4) |exp| _ = try std.fmt.format(
+                    writer,
+                    "    {}\n",
+                    .{exp},
+                );
+                if (v.expected5) |exp| _ = try std.fmt.format(
+                    writer,
+                    "    {}\n",
+                    .{exp},
+                );
+                if (v.expected6) |exp| _ = try std.fmt.format(
+                    writer,
+                    "    {}\n",
+                    .{exp},
+                );
             },
             .TypeMismatch => |v| {
                 _ = try std.fmt.format(writer, "Type mismatch error\n", .{});
-                _ = try std.fmt.format(writer, "  Note: left side {s} results in type ", .{v.left.getNode().getString(lexer)});
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: left side {s} results in type ",
+                    .{v.left.getNode().getString(lexer)},
+                );
                 try v.leftTp.getNode().prettyPrint(writer);
                 _ = try std.fmt.format(writer, "\n", .{});
                 if (v.right) |right| {
-                    _ = try std.fmt.format(writer, "  Note: right side {s} results in type ", .{right.getNode().getString(lexer)});
+                    _ = try std.fmt.format(
+                        writer,
+                        "  Note: right side {s} results in type ",
+                        .{right.getNode().getString(lexer)},
+                    );
                 } else {
                     _ = try std.fmt.format(writer, "  Note: Expected type ", .{});
                 }
                 try v.rightTp.getNode().prettyPrint(writer);
                 _ = try std.fmt.format(writer, "\n", .{});
-                _ = try std.fmt.format(writer, "  Note: while evaluating {s} \n", .{v.whileEvaluating.getNode().getString(lexer)});
+                _ = try std.fmt.format(
+                    writer,
+                    "  Note: while evaluating {s} \n",
+                    .{v.whileEvaluating.getNode().getString(lexer)},
+                );
             },
             .UnknownTypeToken => |v| {
                 const str = switch (v.tok) {
                     .Ident => |str| str,
                     else => unreachable,
                 };
-                _ = try std.fmt.format(writer, "Unkown type token {s} on line {}\n", .{ str, lexer.getLineFor(v.startPos) });
+                _ = try std.fmt.format(
+                    writer,
+                    "Unkown type token {s} on line {}\n",
+                    .{ str, lexer.getLineFor(v.startPos) },
+                );
             },
             .UnexpectedType => |v| {
                 _ = try std.fmt.format(writer, "Error unexpected type ", .{});
                 try v.gotTp.getNode().prettyPrint(writer);
                 _ = try std.fmt.format(writer, "\n  Note: Expected ", .{});
                 try v.expected.getNode().prettyPrint(writer);
-                _ = try std.fmt.format(writer, "\n  Note: unexpected type from statement {s} \n", .{v.got.getNode().getString(lexer)});
+                _ = try std.fmt.format(
+                    writer,
+                    "\n  Note: unexpected type from statement {s} \n",
+                    .{v.got.getNode().getString(lexer)},
+                );
                 if (v.from) |from| {
-                    _ = try std.fmt.format(writer, "\n  Note: exepcted type derived from {s} \n", .{from.getNode().getString(lexer)});
+                    _ = try std.fmt.format(
+                        writer,
+                        "\n  Note: exepcted type derived from {s} \n",
+                        .{from.getNode().getString(lexer)},
+                    );
                 }
             },
             else => unreachable,
@@ -114,15 +198,20 @@ pub const ErrorInfo = union(enum) {
 };
 
 pub fn errEmptyBlock(leftBrace: lex.Token, rightBrace: lex.Token) ParseError {
-    Ast.errorBus.append(ErrorInfo{ .EmptyBlock = .{ .leftBrace = leftBrace, .rightBrace = rightBrace } }) catch return ParseError.OutOfMemory;
+    Ast.errorBus.append(
+        ErrorInfo{ .EmptyBlock = .{ .leftBrace = leftBrace, .rightBrace = rightBrace } },
+    ) catch return ParseError.OutOfMemory;
     return ParseError.EmptyBlock;
 }
 pub fn errVariableRedecl(ogDecl: Ast.AstRef, newDecl: Ast.AstRef) ParseError {
-    Ast.errorBus.append(ErrorInfo{ .VariableRedeclaration = .{ .ogDecl = ogDecl, .redecl = newDecl } }) catch return ParseError.OutOfMemory;
+    Ast.errorBus.append(
+        ErrorInfo{ .VariableRedeclaration = .{ .ogDecl = ogDecl, .redecl = newDecl } },
+    ) catch return ParseError.OutOfMemory;
     return ParseError.VariableRedeclaration;
 }
 pub fn errVarNotExist(variable: lex.Token) ParseError {
-    Ast.errorBus.append(ErrorInfo{ .VariableDoesntExist = variable }) catch return ParseError.OutOfMemory;
+    Ast.errorBus.append(ErrorInfo{ .VariableDoesntExist = variable }) catch
+        return ParseError.OutOfMemory;
     return ParseError.VariableDoesntExist;
 }
 
@@ -160,7 +249,15 @@ pub fn errTypeMismatch(
     rightTp: Tp.TypeRef,
     evaluating: Ast.AstRef,
 ) ParseError {
-    Ast.errorBus.append(ErrorInfo{ .TypeMismatch = .{ .left = left, .right = right, .leftTp = leftTp, .rightTp = rightTp, .whileEvaluating = evaluating } }) catch return ParseError.OutOfMemory;
+    Ast.errorBus.append(
+        ErrorInfo{ .TypeMismatch = .{
+            .left = left,
+            .right = right,
+            .leftTp = leftTp,
+            .rightTp = rightTp,
+            .whileEvaluating = evaluating,
+        } },
+    ) catch return ParseError.OutOfMemory;
     return ParseError.TypeMismatch;
 }
 pub fn errUnexpectedType(
@@ -193,4 +290,14 @@ pub fn errParamMismatch(
     return ParseError.ParamSizeMismatch;
 }
 
-pub const ParseError = error{ ParamSizeMismatch, UnknownTypeToken, EmptyBlock, VariableDoesntExist, VariableRedeclaration, UnexpectedToken, OutOfMemory, TypeMismatch, UnexpectedType } || lex.LexerError;
+pub const ParseError = error{
+    ParamSizeMismatch,
+    UnknownTypeToken,
+    EmptyBlock,
+    VariableDoesntExist,
+    VariableRedeclaration,
+    UnexpectedToken,
+    OutOfMemory,
+    TypeMismatch,
+    UnexpectedType,
+} || lex.LexerError;

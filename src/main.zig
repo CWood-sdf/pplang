@@ -179,6 +179,18 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             try convertAst(v.right, writer);
             _ = try writer.write(">::__ret ");
         },
+        .Merge => |v| {
+            _ = try writer.write("typename Merge<");
+            try convertAst(v.left, writer);
+            _ = try writer.write(", ");
+            try convertAst(v.right, writer);
+            _ = try writer.write(">::__ret ");
+        },
+        .Sizeof => |v| {
+            _ = try writer.write("typename Sizeof<");
+            try convertAst(v.value, writer);
+            _ = try writer.write(">::__ret ");
+        },
         .ArrayLiteral => |v| {
             _ = try writer.write("Array<");
             if (v.value) |val| {
