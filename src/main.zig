@@ -66,12 +66,12 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             }
         },
         .FunctionDecl => |v| {
+            if (v.params) |params| {
+                _ = try writer.write("template<");
+                try convertAst(params, writer);
+                _ = try writer.write(">\n");
+            }
             if (v.ret) |_| {
-                if (v.params) |params| {
-                    _ = try writer.write("template<");
-                    try convertAst(params, writer);
-                    _ = try writer.write(">\n");
-                }
                 const fnName = switch (v.name.getNode().*) {
                     .Ident => |n| switch (n.tok) {
                         .Ident => |str| str,
@@ -83,12 +83,6 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 try convertAst(v.block, writer);
                 _ = try writer.write("};\n");
             } else {
-                if (v.params) |params| {
-                    _ = try writer.write("template<");
-                    try convertAst(params, writer);
-                    _ = try writer.write(">\n");
-                }
-
                 if (v.where) |where| {
                     _ = try writer.write("requires (GetValue<");
                     try convertAst(where, writer);
@@ -128,9 +122,10 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             }
         },
         .Declaration => |v| {
-            _ = try writer.write("typedef ");
-            try convertAst(v.value, writer);
+            _ = try writer.write("using ");
             try convertAst(v.name, writer);
+            _ = try writer.write(" = ");
+            try convertAst(v.value, writer);
             _ = try writer.write(";\n");
         },
         .Ident => |v| {
@@ -228,9 +223,9 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
             _ = try writer.write(">::__ret ");
         },
         .Return => |v| {
-            _ = try writer.write("typedef ");
+            _ = try writer.write("using __ret = ");
             try convertAst(v.value, writer);
-            _ = try writer.write(" __ret;\n");
+            _ = try writer.write(";\n");
         },
     }
 }
