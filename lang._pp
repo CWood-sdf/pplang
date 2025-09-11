@@ -32,7 +32,7 @@ fn equalsOne(param: int) -> bool {
     return param == 1;
 }
 
-fn yeetWith(param: fn(int) -> int, value: int) -> int{
+fn yeetWith(param: fn(int) -> int, value: int) -> int {
     return param(value);
 }
 

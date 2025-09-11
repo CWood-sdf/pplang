@@ -4,7 +4,7 @@ const lex = @import("lexer.zig");
 const Ast = @import("ast.zig");
 const Tp = @import("types.zig");
 
-pub fn writeParamNames(ast: ?Ast.AstRef, writer: std.fs.File.Writer) !void {
+pub fn writeParamNames(ast: ?Ast.AstRef, writer: *std.Io.Writer) !void {
     if (ast == null) return;
     switch (ast.?.getNode().*) {
         .FunctionParameterDecl => |v| {
@@ -12,7 +12,7 @@ pub fn writeParamNames(ast: ?Ast.AstRef, writer: std.fs.File.Writer) !void {
                 .Ident => |str| str,
                 else => unreachable,
             };
-            _ = try std.fmt.format(writer, "{s}", .{name});
+            _ = try writer.print("{s}", .{name});
             if (v.next) |next| {
                 _ = try writer.write(", ");
                 try writeParamNames(next, writer);
@@ -22,7 +22,7 @@ pub fn writeParamNames(ast: ?Ast.AstRef, writer: std.fs.File.Writer) !void {
     }
 }
 
-pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
+pub fn convertAst(ast: Ast.AstRef, writer: *std.Io.Writer) !void {
     switch (ast.getNode().*) {
         .FunctionCallParam => |v| {
             try convertAst(v.value, writer);
@@ -59,7 +59,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 .Ident => |str| str,
                 else => unreachable,
             };
-            _ = try std.fmt.format(writer, "{s}", .{name});
+            _ = try writer.print("{s}", .{name});
             if (v.next) |next| {
                 _ = try writer.write(", ");
                 try convertAst(next, writer);
@@ -79,7 +79,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                     },
                     else => unreachable,
                 };
-                _ = try std.fmt.format(writer, "struct {s} {{\n", .{fnName});
+                _ = try writer.print("struct {s} {{\n", .{fnName});
                 try convertAst(v.block, writer);
                 _ = try writer.write("};\n");
             } else {
@@ -95,7 +95,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                     },
                     else => unreachable,
                 };
-                _ = try std.fmt.format(writer, "struct {s}<", .{fnName});
+                _ = try writer.print("struct {s}<", .{fnName});
                 try writeParamNames(v.params, writer);
                 _ = try writer.write(">{\n");
                 try convertAst(v.block, writer);
@@ -107,7 +107,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
                 .Ident => |str| str,
                 else => unreachable,
             };
-            _ = try std.fmt.format(writer, "typename {s}", .{name});
+            _ = try writer.print("typename {s}", .{name});
             if (v.params) |params| {
                 _ = try writer.write("<");
                 try convertAst(params, writer);
@@ -131,7 +131,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         .Ident => |v| {
             switch (v.tok) {
                 .Ident => |str| {
-                    try std.fmt.format(writer, "{s} ", .{str});
+                    try writer.print("{s} ", .{str});
                 },
                 else => unreachable,
             }
@@ -145,7 +145,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         .Int => |v| {
             switch (v.tok) {
                 .IntLiteral => |val| {
-                    try std.fmt.format(writer, "Int<{}> ", .{val});
+                    try writer.print("Int<{}> ", .{val});
                 },
                 else => unreachable,
             }
@@ -153,7 +153,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         .Float => |v| {
             switch (v.tok) {
                 .FloatLiteral => |val| {
-                    try std.fmt.format(writer, "Float<{}> ", .{val});
+                    try writer.print("Float<{}> ", .{val});
                 },
                 else => unreachable,
             }
@@ -214,7 +214,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         .VariableAccess => |v| {
             switch (v.tok) {
                 .Ident => |str| {
-                    try std.fmt.format(writer, "{s} ", .{str});
+                    try writer.print("{s} ", .{str});
                 },
                 else => unreachable,
             }
@@ -222,7 +222,7 @@ pub fn convertAst(ast: Ast.AstRef, writer: std.fs.File.Writer) !void {
         .FunctionAccess => |v| {
             switch (v.name.tok) {
                 .Ident => |str| {
-                    try std.fmt.format(writer, "{s} ", .{str});
+                    try writer.print("{s} ", .{str});
                 },
                 else => unreachable,
             }
@@ -246,12 +246,19 @@ pub fn writeAstToFile(ast: Ast.AstRef, filename: []const u8) !void {
     const file = try std.fs.cwd().createFile(filename, .{ .truncate = true });
     // const file = try std.fs.cwd().openFile(filename, .{ .mode = .write_only });
 
-    _ = try file.write("#include \"stdlib.hpp\"\n");
+    var buf: [1024]u8 = undefined;
+    var w = file.writer(&buf);
+    const iow = &w.interface;
+    _ = try iow.write("#include \"stdlib.hpp\"\n");
 
-    try convertAst(ast, file.writer());
+    try convertAst(ast, iow);
+
+    try iow.flush();
 }
 
 pub fn main() !void {
+    // const v: u8 = 0;
+    // @atomicRmw(u8, &v, std.builtin.AtomicRmwOp.Add, 1, std.builtin.AtomicOrder.release);
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
     // std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
@@ -263,16 +270,21 @@ pub fn main() !void {
     const file = try std.fs.cwd().openFile("lang._pp", .{});
     defer file.close();
 
-    var reader = std.io.bufferedReader(file.reader());
-    var inStream = reader.reader();
+    var buf: [1028]u8 = undefined;
 
-    var backingArr = std.ArrayList(u8).init(alloc);
-    defer backingArr.deinit();
+    var reader = file.reader(&buf);
+    const inStream = &reader.interface;
+
+    var backingArr: std.ArrayList(u8) = .empty;
+    // backingArr.init(alloc);
+    defer backingArr.deinit(alloc);
     while (true) {
         const size = 1024;
-        const bytes = try inStream.readBoundedBytes(size);
-        try backingArr.appendSlice(bytes.constSlice());
-        if (bytes.len < size) {
+        var bytes: [size]u8 = undefined;
+        const readBytes = try inStream.readSliceShort(&bytes);
+        // const bytes = try inStream.readBoundedBytes(size);
+        try backingArr.appendSlice(alloc, bytes[0..readBytes]);
+        if (readBytes < size) {
             break;
         }
     }
@@ -280,18 +292,20 @@ pub fn main() !void {
     // stdout is for the actual output of your application, for example if you
     // are implementing gzip, then only the compressed bytes should be sent to
     // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer().any();
-    const bw = stdout_file;
-    const stdout = bw;
+
+    var stdoutbuf: [1028]u8 = undefined;
+    var stdout_file = std.fs.File.stdout().writer(&stdoutbuf);
+    const stdout = &stdout_file.interface;
 
     var lexer = lex.Lexer.init(backingArr.items);
 
-    Ast.astNodes = @TypeOf(Ast.astNodes).init(alloc);
-    defer Ast.astNodes.deinit();
-    Ast.errorBus = @TypeOf(Ast.errorBus).init(alloc);
-    defer Ast.errorBus.deinit();
-    Ast.typeTree = @TypeOf(Ast.typeTree).init(alloc);
-    defer Ast.typeTree.deinit();
+    Ast.alloc = alloc;
+    Ast.astNodes = @TypeOf(Ast.astNodes).empty;
+    defer Ast.astNodes.deinit(alloc);
+    Ast.errorBus = @TypeOf(Ast.errorBus).empty;
+    defer Ast.errorBus.deinit(alloc);
+    Ast.typeTree = @TypeOf(Ast.typeTree).empty;
+    defer Ast.typeTree.deinit(alloc);
 
     const node = Ast.parseAst(&lexer) catch {
         for (Ast.errorBus.items) |err| {
@@ -300,12 +314,12 @@ pub fn main() !void {
         return;
     };
 
-    Tp.validateTypes(node.?, alloc) catch {
-        for (Ast.errorBus.items) |err| {
-            try err.prettyPrint(stdout, &lexer);
-        }
-        return;
-    };
+    // Tp.validateTypes(node.?, alloc) catch {
+    //     for (Ast.errorBus.items) |err| {
+    //         try err.prettyPrint(stdout, &lexer);
+    //     }
+    //     return;
+    // };
     // Pretty.printAst(node.?, 0);
     try writeAstToFile(node.?, "urmom.cpp");
     // while (!lexer.isEOF()) {
@@ -313,6 +327,7 @@ pub fn main() !void {
     // }
 
     try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    try stdout.flush();
 
     // try bw.flush(); // don't forget to flush!
 }

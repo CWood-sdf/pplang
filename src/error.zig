@@ -42,13 +42,12 @@ pub const ErrorInfo = union(enum) {
 
     pub fn prettyPrint(
         self: *const ErrorInfo,
-        writer: std.io.AnyWriter,
+        writer: *std.Io.Writer,
         lexer: *lex.Lexer,
     ) !void {
         switch (self.*) {
             .EmptyBlock => |v| {
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "Unexpected empty block on line {}\n",
                     .{lexer.getLineFor(v.leftBrace.startPos)},
                 );
@@ -58,107 +57,91 @@ pub const ErrorInfo = union(enum) {
                     .Ident => |str| str,
                     else => unreachable,
                 };
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "Variable {s} not found on line {}\n",
                     .{ str, lexer.getLineFor(v.startPos) },
                 );
             },
             .VariableRedeclaration => |v| {
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "On line {}, variable redeclared\n",
                     .{lexer.getLineFor(v.redecl.getNode().getLeftRange())},
                 );
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "  Note: variable first declared on line {}\n",
                     .{lexer.getLineFor(v.ogDecl.getNode().getLeftRange())},
                 );
             },
             .ParamSizeMismatch => |v| {
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "On line {}, parameter size mismatch\n",
                     .{
                         lexer.getLineFor(v.actualFrom.getNode().getLeftRange()),
                     },
                 );
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "  Note: expected {} parameters, but got {}\n",
                     .{ v.expectedSize, v.actualSize },
                 );
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "  Note: expected because of declaration on line {}: {s}\n",
                     .{
                         lexer.getLineFor(v.expectedFrom.getNode().getLeftRange()),
                         v.expectedFrom.getNode().getString(lexer),
                     },
                 );
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "  Note: but got {s}\n",
                     .{v.actualFrom.getNode().getString(lexer)},
                 );
             },
             .UnexpectedToken => |v| {
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "On line {}, unexpected token {}\n",
                     .{ lexer.getLineFor(v.got.startPos), v.got.tok },
                 );
                 _ = try writer.write("  Note: expected one of: \n");
-                _ = try std.fmt.format(writer, "    {}\n", .{v.expected});
-                if (v.expected2) |exp| _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print("    {}\n", .{v.expected});
+                if (v.expected2) |exp| _ = try writer.print(
                     "    {}\n",
                     .{exp},
                 );
-                if (v.expected3) |exp| _ = try std.fmt.format(
-                    writer,
+                if (v.expected3) |exp| _ = try writer.print(
                     "    {}\n",
                     .{exp},
                 );
-                if (v.expected4) |exp| _ = try std.fmt.format(
-                    writer,
+                if (v.expected4) |exp| _ = try writer.print(
                     "    {}\n",
                     .{exp},
                 );
-                if (v.expected5) |exp| _ = try std.fmt.format(
-                    writer,
+                if (v.expected5) |exp| _ = try writer.print(
                     "    {}\n",
                     .{exp},
                 );
-                if (v.expected6) |exp| _ = try std.fmt.format(
-                    writer,
+                if (v.expected6) |exp| _ = try writer.print(
                     "    {}\n",
                     .{exp},
                 );
             },
             .TypeMismatch => |v| {
-                _ = try std.fmt.format(writer, "Type mismatch error\n", .{});
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print("Type mismatch error\n", .{});
+                _ = try writer.print(
                     "  Note: left side {s} results in type ",
                     .{v.left.getNode().getString(lexer)},
                 );
                 try v.leftTp.getNode().prettyPrint(writer);
-                _ = try std.fmt.format(writer, "\n", .{});
+                _ = try writer.print("\n", .{});
                 if (v.right) |right| {
-                    _ = try std.fmt.format(
-                        writer,
+                    _ = try writer.print(
                         "  Note: right side {s} results in type ",
                         .{right.getNode().getString(lexer)},
                     );
                 } else {
-                    _ = try std.fmt.format(writer, "  Note: Expected type ", .{});
+                    _ = try writer.print("  Note: Expected type ", .{});
                 }
                 try v.rightTp.getNode().prettyPrint(writer);
-                _ = try std.fmt.format(writer, "\n", .{});
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print("\n", .{});
+                _ = try writer.print(
                     "  Note: while evaluating {s} \n",
                     .{v.whileEvaluating.getNode().getString(lexer)},
                 );
@@ -168,25 +151,22 @@ pub const ErrorInfo = union(enum) {
                     .Ident => |str| str,
                     else => unreachable,
                 };
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "Unkown type token {s} on line {}\n",
                     .{ str, lexer.getLineFor(v.startPos) },
                 );
             },
             .UnexpectedType => |v| {
-                _ = try std.fmt.format(writer, "Error unexpected type ", .{});
+                _ = try writer.print("Error unexpected type ", .{});
                 try v.gotTp.getNode().prettyPrint(writer);
-                _ = try std.fmt.format(writer, "\n  Note: Expected ", .{});
+                _ = try writer.print("\n  Note: Expected ", .{});
                 try v.expected.getNode().prettyPrint(writer);
-                _ = try std.fmt.format(
-                    writer,
+                _ = try writer.print(
                     "\n  Note: unexpected type from statement {s} \n",
                     .{v.got.getNode().getString(lexer)},
                 );
                 if (v.from) |from| {
-                    _ = try std.fmt.format(
-                        writer,
+                    _ = try writer.print(
                         "\n  Note: exepcted type derived from {s} \n",
                         .{from.getNode().getString(lexer)},
                     );
@@ -199,6 +179,7 @@ pub const ErrorInfo = union(enum) {
 
 pub fn errEmptyBlock(leftBrace: lex.Token, rightBrace: lex.Token) ParseError {
     Ast.errorBus.append(
+        Ast.alloc,
         ErrorInfo{ .EmptyBlock = .{ .leftBrace = leftBrace, .rightBrace = rightBrace } },
     ) catch return ParseError.OutOfMemory;
     return ParseError.EmptyBlock;
@@ -225,13 +206,13 @@ fn itemOrNull(tp: type, slice: []const tp, item: usize) ?tp {
 pub fn errUnexpectedToken(got: lex.Token, expected: anytype) ParseError {
     const info = @typeInfo(@TypeOf(expected));
     const slice: []const lex.TokenType = switch (info) {
-        .Array => |a| blk: {
+        .array => |a| blk: {
             comptime if (a.child != lex.TokenType) unreachable;
             break :blk expected[0..a.len];
         },
         else => unreachable,
     };
-    Ast.errorBus.append(ErrorInfo{ .UnexpectedToken = .{
+    Ast.errorBus.append(Ast.alloc, ErrorInfo{ .UnexpectedToken = .{
         .got = got,
         .expected = slice[0],
         .expected2 = itemOrNull(lex.TokenType, slice, 1),

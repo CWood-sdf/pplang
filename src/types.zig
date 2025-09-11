@@ -50,7 +50,7 @@ pub const Type = union(enum) {
         }
         return true;
     }
-    pub fn prettyPrint(self: *Type, writer: std.io.AnyWriter) !void {
+    pub fn prettyPrint(self: *Type, writer: *std.Io.Writer) !void {
         switch (self.*) {
             .Generic => |v| _ = try writer.write(v.name),
             .Bool => _ = try writer.write("bool"),
@@ -325,31 +325,30 @@ pub fn getType(ast: Ast.AstRef, scopes: *scope.Scopes) Err.ParseError!TypeRef {
             };
             var retNode: Ast.AstRef = undefined;
             const expectedRet =
-                if (v.ret) |ret|
-            blk: {
-                const params = if (v.params) |params|
-                    try parseTypeExpression(params)
-                else
-                    null;
-                const retTp = try parseTypeExpression(ret);
-                try scopes.addDefaultFunction(name, ast, try getTypeRefFor(.{
-                    .Function = .{ .params = params, .ret = retTp },
-                }));
-                retNode = ret;
-                break :blk retTp;
-            } else blk: {
-                const fun = try scopes.getFunction(name, nameTok);
-                const funNode = switch (fun.decl.getNode().*) {
-                    .FunctionDecl => |r| r,
-                    else => unreachable,
+                if (v.ret) |ret| blk: {
+                    const params = if (v.params) |params|
+                        try parseTypeExpression(params)
+                    else
+                        null;
+                    const retTp = try parseTypeExpression(ret);
+                    try scopes.addDefaultFunction(name, ast, try getTypeRefFor(.{
+                        .Function = .{ .params = params, .ret = retTp },
+                    }));
+                    retNode = ret;
+                    break :blk retTp;
+                } else blk: {
+                    const fun = try scopes.getFunction(name, nameTok);
+                    const funNode = switch (fun.decl.getNode().*) {
+                        .FunctionDecl => |r| r,
+                        else => unreachable,
+                    };
+                    retNode = funNode.ret.?;
+                    try assertParamSizeMatch(v.params, funNode.params, ast, fun.decl);
+                    try assertParamsMatch(v.params, funNode.params, fun.decl);
+                    try scopes.addFunction(name, nameTok);
+                    const ret = funNode.ret.?;
+                    break :blk try parseTypeExpression(ret);
                 };
-                retNode = funNode.ret.?;
-                try assertParamSizeMatch(v.params, funNode.params, ast, fun.decl);
-                try assertParamsMatch(v.params, funNode.params, fun.decl);
-                try scopes.addFunction(name, nameTok);
-                const ret = funNode.ret.?;
-                break :blk try parseTypeExpression(ret);
-            };
             try scopes.addScope();
             defer scopes.popScope();
             try addParams(v.params, scopes);
