@@ -233,6 +233,8 @@ The parser has an attempt at diagnostics, but they are not good (read: almost us
 
 The codebase is currently a mess because i wrote most of it over a few nights after having WAYY too much diet coke
 
+The treesitter parser is out of date
+
 ### How to fix?
 
 Do you want a feature? Submit an issue and I will prolly make it (bully driven development ftw)
