@@ -559,7 +559,7 @@ pub fn main() !void {
     determineInOut(&argIter, &input, &output);
 
     const alloc = gpa.allocator();
-    std.debug.print("YO {s} -> {s}\n", .{ input.?, output.? });
+    std.debug.print("PP {s} -> {s}\n", .{ input.?, output.? });
     try parseFile(alloc, input.?, output.?);
 }
 

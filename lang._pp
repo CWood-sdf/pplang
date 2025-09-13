@@ -125,8 +125,6 @@ fn printParam(param: int) -> int {
 
 let ooga = printParam(3);
 
-// let urmomgay = print(3.2);
-
 let printed = print('\n');
 
 fn sumAll(args... : int) -> int {
