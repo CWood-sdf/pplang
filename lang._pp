@@ -1,3 +1,24 @@
+fn mergeArrays(left: any, right: any) -> any {
+    return [];
+}
+fn mergeArrays([left...: any]: any, [right...: any]: any) where true {
+    return [left..., right...];
+}
+
+fn sumAllArr(v: any) -> any {
+    return 0;
+}
+
+fn sumAllArr([v: int, rest...: int]: int) where true {
+    return v + sumAllArr([rest...]);
+}
+
+let arrayLeft = [1, 2, 3];
+let arrayRight = [4, 5, 6];
+
+let res = sumAllArr(mergeArrays(arrayLeft, arrayRight));
+let printRes = print(res, '\n', [1, 2, 3]);
+
 let value = 1 + 5 + 4;
 let value2: [[int]] = [[0], [value]];
 
@@ -51,4 +72,70 @@ fn firstFunction(param: float) -> float {
     return param - 3.0 + 1.0 + otherFn() - 2.0;
 }
 
+fn plus1(param: int) -> int {
+    return param + 1;
+}
+
+fn returnsFunction(param: fn(int) -> int) -> fn(int) -> int {
+    let printed = print(69);
+    return param;
+}
+
+fn returnsFnFn(param: fn(fn(int) -> int) -> fn(int) -> int) -> fn(fn(int) -> int) -> fn(int) -> int {
+    return param;
+}
+
+fn closureTest(param: int) -> fn() -> int {
+    fn closure(param2: int) -> int {
+        return param + param2;
+    }
+    return closure;
+}
+
+let array = [fn closureTest, fn plus1];
+
+let closureTestArr = array[0];
+let plus1Arr = array[1];
+
+let f2: fn(int) -> int = closureTestArr(2);
+let fukyo: int = f2(4);
+
+let plus1omgomg = plus1Arr(3);
+
+let f: fn(int) -> int = closureTest(6);
+
+let fuk = f(7);
+
+let idk = print(fuk);
+
+let returned: fn(int) -> int = returnsFunction(plus1);
+let returned2: fn(fn(int) -> int) -> fn(int) -> int = returnsFnFn(returnsFunction);
+let omg: fn(int) -> int = returned2(plus1);
+
+let out = returned(1);
+let out2 = omg(1);
+
 let yo = firstFunction(1.0);
+
+fn printParam(param: int) -> int {
+
+    let idk = print(param);
+    return param + 1;
+}
+
+let ooga = printParam(3);
+
+// let urmomgay = print(3.2);
+
+let printed = print('\n');
+
+fn sumAll(args... : int) -> int {
+    return 0;
+}
+
+fn sumAll(v: any, rest...: any) where true {
+    return v + sumAll(rest...);
+}
+
+// let printed2 = print(ifelse(true, sumAll(1, 2, 3, 4), sumAll(1, 2, 3)));
+

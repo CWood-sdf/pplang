@@ -1,6 +1,6 @@
 const std = @import("std");
 const lex = @import("lexer.zig");
-const Tp = @import("types.zig");
+// const Tp = @import("types.zig");
 const Ast = @import("ast.zig");
 pub const ErrorInfo = union(enum) {
     UnknownTypeToken: lex.Token,
@@ -29,14 +29,14 @@ pub const ErrorInfo = union(enum) {
     TypeMismatch: struct {
         left: Ast.AstRef,
         right: ?Ast.AstRef,
-        leftTp: Tp.TypeRef,
-        rightTp: Tp.TypeRef,
+        // leftTp: Tp.TypeRef,
+        // rightTp: Tp.TypeRef,
         whileEvaluating: Ast.AstRef,
     },
     UnexpectedType: struct {
         got: Ast.AstRef,
-        gotTp: Tp.TypeRef,
-        expected: Tp.TypeRef,
+        // gotTp: Tp.TypeRef,
+        // expected: Tp.TypeRef,
         from: ?Ast.AstRef,
     },
 
@@ -123,28 +123,28 @@ pub const ErrorInfo = union(enum) {
                     .{exp},
                 );
             },
-            .TypeMismatch => |v| {
-                _ = try writer.print("Type mismatch error\n", .{});
-                _ = try writer.print(
-                    "  Note: left side {s} results in type ",
-                    .{v.left.getNode().getString(lexer)},
-                );
-                try v.leftTp.getNode().prettyPrint(writer);
-                _ = try writer.print("\n", .{});
-                if (v.right) |right| {
-                    _ = try writer.print(
-                        "  Note: right side {s} results in type ",
-                        .{right.getNode().getString(lexer)},
-                    );
-                } else {
-                    _ = try writer.print("  Note: Expected type ", .{});
-                }
-                try v.rightTp.getNode().prettyPrint(writer);
-                _ = try writer.print("\n", .{});
-                _ = try writer.print(
-                    "  Note: while evaluating {s} \n",
-                    .{v.whileEvaluating.getNode().getString(lexer)},
-                );
+            .TypeMismatch => |_| {
+                // _ = try writer.print("Type mismatch error\n", .{});
+                // _ = try writer.print(
+                //     "  Note: left side {s} results in type ",
+                //     .{v.left.getNode().getString(lexer)},
+                // );
+                // try v.leftTp.getNode().prettyPrint(writer);
+                // _ = try writer.print("\n", .{});
+                // if (v.right) |right| {
+                //     _ = try writer.print(
+                //         "  Note: right side {s} results in type ",
+                //         .{right.getNode().getString(lexer)},
+                //     );
+                // } else {
+                //     _ = try writer.print("  Note: Expected type ", .{});
+                // }
+                // try v.rightTp.getNode().prettyPrint(writer);
+                // _ = try writer.print("\n", .{});
+                // _ = try writer.print(
+                //     "  Note: while evaluating {s} \n",
+                //     .{v.whileEvaluating.getNode().getString(lexer)},
+                // );
             },
             .UnknownTypeToken => |v| {
                 const str = switch (v.tok) {
@@ -156,21 +156,21 @@ pub const ErrorInfo = union(enum) {
                     .{ str, lexer.getLineFor(v.startPos) },
                 );
             },
-            .UnexpectedType => |v| {
-                _ = try writer.print("Error unexpected type ", .{});
-                try v.gotTp.getNode().prettyPrint(writer);
-                _ = try writer.print("\n  Note: Expected ", .{});
-                try v.expected.getNode().prettyPrint(writer);
-                _ = try writer.print(
-                    "\n  Note: unexpected type from statement {s} \n",
-                    .{v.got.getNode().getString(lexer)},
-                );
-                if (v.from) |from| {
-                    _ = try writer.print(
-                        "\n  Note: exepcted type derived from {s} \n",
-                        .{from.getNode().getString(lexer)},
-                    );
-                }
+            .UnexpectedType => |_| {
+                // _ = try writer.print("Error unexpected type ", .{});
+                // try v.gotTp.getNode().prettyPrint(writer);
+                // _ = try writer.print("\n  Note: Expected ", .{});
+                // try v.expected.getNode().prettyPrint(writer);
+                // _ = try writer.print(
+                //     "\n  Note: unexpected type from statement {s} \n",
+                //     .{v.got.getNode().getString(lexer)},
+                // );
+                // if (v.from) |from| {
+                //     _ = try writer.print(
+                //         "\n  Note: exepcted type derived from {s} \n",
+                //         .{from.getNode().getString(lexer)},
+                //     );
+                // }
             },
             else => unreachable,
         }
@@ -226,33 +226,37 @@ pub fn errUnexpectedToken(got: lex.Token, expected: anytype) ParseError {
 pub fn errTypeMismatch(
     left: Ast.AstRef,
     right: ?Ast.AstRef,
-    leftTp: Tp.TypeRef,
-    rightTp: Tp.TypeRef,
+    // leftTp: Tp.TypeRef,
+    // rightTp: Tp.TypeRef,
     evaluating: Ast.AstRef,
 ) ParseError {
     Ast.errorBus.append(
-        ErrorInfo{ .TypeMismatch = .{
-            .left = left,
-            .right = right,
-            .leftTp = leftTp,
-            .rightTp = rightTp,
-            .whileEvaluating = evaluating,
-        } },
+        ErrorInfo{
+            .TypeMismatch = .{
+                .left = left,
+                .right = right,
+                // .leftTp = leftTp,
+                // .rightTp = rightTp,
+                .whileEvaluating = evaluating,
+            },
+        },
     ) catch return ParseError.OutOfMemory;
     return ParseError.TypeMismatch;
 }
 pub fn errUnexpectedType(
     got: Ast.AstRef,
-    gotTp: Tp.TypeRef,
-    expected: Tp.TypeRef,
+    // gotTp: Tp.TypeRef,
+    // expected: Tp.TypeRef,
     from: ?Ast.AstRef,
 ) ParseError {
-    Ast.errorBus.append(ErrorInfo{ .UnexpectedType = .{
-        .got = got,
-        .gotTp = gotTp,
-        .expected = expected,
-        .from = from,
-    } }) catch return ParseError.OutOfMemory;
+    Ast.errorBus.append(ErrorInfo{
+        .UnexpectedType = .{
+            .got = got,
+            // .gotTp = gotTp,
+            // .expected = expected,
+            .from = from,
+        },
+    }) catch return ParseError.OutOfMemory;
     return ParseError.UnexpectedType;
 }
 

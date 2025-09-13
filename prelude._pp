@@ -1,0 +1,7 @@
+fn ifelse(val: bool, ifval: any, elseval: any) -> any {
+    return elseval;
+}
+
+fn ifelse(val: bool, ifval: any, elseval: any) where val {
+    return ifval;
+}

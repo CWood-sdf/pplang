@@ -67,6 +67,7 @@
         "build.zig",
         "build.zig.zon",
         "src",
+        "lang._pp",
         // For example...
         //"LICENSE",
         //"README.md",

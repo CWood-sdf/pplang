@@ -26,6 +26,7 @@ pub const TokenType = union(enum) {
     OpHash,
     Arrow,
     Semicolon,
+    Ellipsis,
 
     // Literals
     StringLiteral: []const u8,
@@ -43,6 +44,7 @@ pub const TokenType = union(enum) {
     Trait,
     Where,
     Return,
+    // Print,
 
     pub fn prec(self: *TokenType) u8 {
         return switch (self.*) {
@@ -210,6 +212,9 @@ pub const Lexer = struct {
         if (std.mem.eql(u8, slice, "where")) {
             return self.makeToken(TokenType.Where);
         }
+        // if (std.mem.eql(u8, slice, "print")) {
+        //     return self.makeToken(TokenType.Print);
+        // }
         if (std.mem.eql(u8, slice, "return")) {
             return self.makeToken(TokenType.Return);
         }
@@ -344,6 +349,32 @@ pub const Lexer = struct {
         return self.makeToken(.{ .IntLiteral = integer });
     }
 
+    pub fn readChar(self: *Lexer) LexerError!Token {
+        _ = self.eatChar();
+        var ch: u8 = self.str[self.pos];
+        _ = self.eatChar();
+        std.debug.print("YOO: {d}\n", .{ch});
+        if (ch == '\\') {
+            const newCh = self.str[self.pos];
+            _ = self.eatChar();
+            std.debug.print("IDK: {c}\n", .{newCh});
+            if (newCh == 'n') {
+                ch = '\n';
+            } else if (newCh == '\'') {
+                ch = '\'';
+            } else if (newCh == '\\') {
+                ch = '\\';
+            } else {
+                std.debug.print("NOO: {c}\n", .{newCh});
+            }
+        }
+        std.debug.print("YOO2: {d}\n", .{ch});
+        if (self.eatChar() != '\'') {
+            return LexerError.InvalidLiteral;
+        }
+        return self.makeToken(.{ .CharLiteral = ch });
+    }
+
     pub fn readString(self: *Lexer) LexerError!Token {
         _ = self.eatChar();
         const start = self.pos;
@@ -378,9 +409,11 @@ pub const Lexer = struct {
             '}' => self.makeTokenEatChar(TokenType.RightBrace),
             ',' => self.makeTokenEatChar(TokenType.Comma),
             ';' => self.makeTokenEatChar(TokenType.Semicolon),
+            '.' => try self.readEllipsis(),
             '"' => try self.readString(),
             '=', '+', '-', '/' => self.readOp(),
             '0'...'9' => try self.readNum(),
+            '\'' => try self.readChar(),
             0 => self.makeToken(TokenType.EOF),
 
             else => |ch| blk: {
@@ -390,6 +423,23 @@ pub const Lexer = struct {
             },
         };
         return self.currentTok.?;
+    }
+
+    pub fn readEllipsis(self: *Lexer) LexerError!Token {
+        // std.debug.print("Reading ellipsis {c}\n", .{self.char()});
+        const next = self.eatChar();
+        const next2 = self.eatChar();
+        const next3 = self.eatChar();
+        if (next != '.') {
+            return LexerError.InvalidLiteral;
+        }
+        if (next2 != '.') {
+            return LexerError.InvalidLiteral;
+        }
+        if (next3 != '.') {
+            return LexerError.InvalidLiteral;
+        }
+        return self.makeToken(.Ellipsis);
     }
     pub fn peekNextToken(self: *Lexer) Token {
         const startCol = self.startCol;
